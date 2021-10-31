@@ -1,0 +1,25 @@
+# Copyright (C) 2019  Stefan Vargyas
+# 
+# This file is part of Sha1-Prefix.
+# 
+# Sha1-Prefix is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Sha1-Prefix is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Sha1-Prefix.  If not, see <http://www.gnu.org/licenses/>.
+# 
+include/openssl/sha.h                 sha1.h
+crypto/sha/sha1dgst.c                 sha1.c
+crypto/sha/sha_locl.h                 sha1-impl.h
+crypto/include/internal/md32_common.h md32-impl.h
+crypto/cryptlib.c                     init.c
+crypto/x86_64cpuid.s                  x86_64cpuid.s
+crypto/perlasm/x86_64-xlate.pl        x86_64-xlate.pl
+crypto/sha/asm/sha1-x86_64.pl         sha1-x86_64.pl

@@ -1,0 +1,298 @@
+
+                                  Sha1-Prefix
+                                  ~~~~~~~~~~~
+                        Stefan Vargyas, stvar@yahoo.com
+
+                                 Jun 17, 2019
+
+
+Table of Contents
+-----------------
+
+0. Copyright
+1. The Sha1-Prefix Program
+2. Building and Running Sha1-Prefix
+3. Appendix: Links to OpenSSL's SHA1
+4. References
+
+
+0. Copyright
+============
+
+This program is GPL-licensed free software. Its author is Stefan Vargyas. You
+can redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+You should have received a copy of the GNU General Public License along with
+this program (look up for the file COPYING in the top directory of the source
+tree). If not, see http://gnu.org/licenses/gpl.html.
+
+The source tree of Sha1-Prefix includes modified source files from other free
+or open-source software projects: OpenSSL [1], Json-Type [2] and MT [3]. These
+source files were placed in 'lib' directory, each hosted by an own subdirectory:
+'sha1', 'json-type' and respectively 'mt'. All source files in 'lib' directory
+contain unaltered the original copyright and license notices.
+
+
+1. The Sha1-Prefix Program
+==========================
+
+Sha1-Prefix's vocation is that of solution to the following SHA1 prefix problem:
+
+    Given an input UTF-8 string and a *difficulty* natural number N with
+    1 <= N <= 9, do find an UTF-8 string that appended to the input string
+    would produce a SHA1 digest of which hexadecimal representation has its
+    leftmost N digits all equal to 0.
+
+Sha1-Prefix is structured on two tiers:
+
+  * 'sha1-prefix' -- obtained from 'sha1-prefix.c' and a few other source files
+    -- is the main program tackling the core of the SHA1 prefix problem. It gets
+    the input string (not necessarily UTF-8) from 'stdin' or from a named file
+    and the difficulty number as a command line argument. 'sha1-prefix' will run
+    until it finds the first suffix string that satisfies the specified prefix
+    condition. It can be told to terminate cleanly the execution when signaled
+    with 'SIGHUP' if `-e|--sighup-exits' was passed on the invoking command line.
+
+  * 'sha1-prefix.sh' is a quite involved 'bash' shell script that drives the main
+    program's execution. Among quite a few ones, the shell script's main use
+    case is that of running 'sha1-prefix' in series controlled by time outs.
+
+The approach taken is justified by the fact that running 'sha1-prefix' in series
+increases Sha1-Prefix's probability of success producing required outcome. (See
+'doc/probabilities.pdf' for a simple theoretical argument sustaining the choice
+made.)
+
+
+2. Building and Running Sha1-Prefix
+===================================
+
+As already noted above, Sha1-Prefix is made of a two components, 'sha1-prefix'
+and 'sha1-prefix.sh'. While the latter is a 'bash' script, the former component
+is obtained upon compiling and linking (statically!) the C source files hosted
+by the 'src' and 'lib' directories along with two external library dependencies:
+PCG [4] and SFMT [5].
+
+The C source code part of Sha1-Prefix is written in modern C and was developed
+under a GNU/Linux environment using the GCC C compiler v7.2.0. (Passing to GCC
+the option `-std=gnu11', it builds 'sha1-prefix' cleanly.)
+
+The above mentioned external libraries are high-quality pseudo-random number
+generators that Sha1-Prefix uses for generating random strings of given length.
+Each of reference entry [4] and [5] contains links to source tarballs to be
+downloaded.
+
+PCG needs to be build for to obtain the library archive 'libpcg_random.a'. One
+should refer to PCG's 'README.md' file for instruction on building and testing
+the library. For what concerns SFMT, one would have to only unpack the tarball
+downloaded in a directory of his/her choice.
+
+Before building 'sha1-prefix', one must build the library archive 'sha1.a' in
+'lib/sha1'. This directory contains a slightly modified implementation of SHA1
+digest computation of OpenSSL. One could easily see a diff between the original
+code of OpenSSL and that in 'lib/sha1' as per the descriptions in the appendix.
+
+For building 'lib/sha1/sha1.a', issue a 'make' command like the following one:
+
+  $ cd lib/sha1
+
+  $ make [SHA1_ASM={no,yes}] [SHA1_BLOCK_DATA_ORDER={avx,avx2,ssse3,shaext}]
+
+The defaults are `SHA1_ASM=yes' and `SHA1_BLOCK_DATA_ORDER=avx'. If one has a
+CPU platform supporting AVX2, SSSE2 or SHAEXT extensions, then the parameter
+'SHA1_BLOCK_DATA_ORDER' better be defined accordingly (it will significantly
+improve the speed of SHA1 digest computations).
+
+For building 'sha1-prefix', one must invoke a 'make' command line like the one
+below within the 'src' directory:
+
+  $ cd src
+
+  $ make [PCG_HOME=$PCG_HOME] [SFMT_HOME=$SFMT_HOME]
+
+The table below describe the two environment variables above. The third column
+of this table specifies is the default value of the respective variable.
+
+  --------------  ---------------------------------------------  ------------
+   '$PCG_HOME'     the *installation* directory of PCG library    /usr/local
+  --------------  ---------------------------------------------  ------------
+   '$SFMT_HOME'    the *source tree* directory of SFMT library       sfmt
+  --------------  ---------------------------------------------  ------------
+
+The peculiarity of '$PCG_HOME' is that it is not the directory that hosts the
+source tree of PCG, but the directory that have two subdirectories -- 'include'
+and 'lib' -- that contain respectively PCG's include file 'pcg_variants.h' and
+PCG's library archive file 'libpcg_random.a'.
+
+Upon building 'sha1-prefix' -- expect to get neither warnings nor errors out of
+'make' -- the first thing one might do is issuing the following command:
+
+  $ ./sha1-prefix --help
+  usage: sha1-prefix [ACTION|OPTION]... [FILE]
+  where actions are:
+    -C|--prefix-cond        generate prefix condition test
+    -D|--sha1-digest        compute SHA1 digest sum
+    -S|--gen-strings        generate random strings
+    -P|--sha1-prefix        generate SHA1 prefix (default)
+  and options are:
+    -e|--[no-]sighup-exits  exit the prefix loop (and the program
+                              for that matter) when signaled with
+                              SIGHUP (default do not, meaning the
+                              program gets killed)
+    -g|--random-gen=NAME    when generating random strings --
+                              the action is `-S|--gen-strings'
+                              or `-P|--sha1-prefix' -- use the
+                              specified algorithm: '[pa]d48',
+                              '[pa]mt', '[pa]pcg' or '[pa]sfmt'
+                              (the default is 'sfmt')
+    -m|--input-max=NUM[KB]  the maximum size of the input file
+                              buffer (default 40K; not allowed
+                              to be more than 1M)
+    -n|--strings=NUM        when generating random strings,
+                              do stop the algorithm when the
+                              the number of iterations reaches
+                              the specified limit (the default
+                              is '-', i.e. SIZE_MAX)
+    -s|--length=NUM         when generating random strings, do
+                              produce them of specified length
+                              (the default: 16)
+    -w|--width=NUM          when action is `-P|--sha1-prefix',
+                              try to produce SHA1 prefixes of
+                              specified width (default: 6)
+
+The output text seen above is for the most part self-explanatory. Note that the
+defining parameter *difficulty* of the SHA1 prefix problem stated in section 1
+is `-w|--width'. The input string is given either on 'stdin' or is contained in
+the named input file 'FILE'.
+
+The command line options `-g|--random-gen' specifies which algorithm to use --
+among twelve possible ones -- when comes to generate random strings (in case
+of action options `-S|--gen-strings' or `-P|--sha1-prefix'). There are four
+basic ones implemented using a certain PRNG:
+
+  ------  ------------------------------------
+   d48     the C-library PRNG drand48/lrand48
+  ------  ------------------------------------
+   mt      the Mersenne Twister PRNG [3]
+  ------  ------------------------------------
+   pcg     one of PCG's PRNG [4]
+  ------  ------------------------------------
+   sfmt    the SIMD Mersenne Twister PRNG [5]
+  ------  ------------------------------------
+
+From this basic random string generators, eight composed ones are specified by
+two one-letter prefixes 'p' or 'a'. The prefix 'p' stand for 'permutation' and
+'a' for 'ascii'. The 'a*' random string generators fulfill the requirement that
+the output of Sha1-Prefix be UTF-8 strings: 'sha1-prefix' in fact chooses to
+generate ASCII strings (this choice happens for reasons of speeding the random
+generation algorithm).
+
+For what concerns the second component of Sha1-Prefix -- the 'bash' shell script
+'sha1-prefix.sh' -- will note here only that for solving the SHA1 prefix problem
+for a difficulty of '$N', one has at his disposition several alternatives. The
+most simple one -- that proved empirically to be the most effective on our oldish
+64-bit Intel Core I5-3210M (Ivy Bridge) 2.5GHz CPU machine -- is the following:
+
+  $ cd src
+
+  $ ./sha1-prefix.sh -s32 -w $N -g $g -i $i -b+
+
+where '$g' should be either 'apcg' or 'asfmt', and '$i' either '+NUM' or 'HEX'.
+Here '+NUM' makes 'sha1-prefix.sh' to generate a random string of length 'NUM'
+using '/dev/urandom'. The other variant -- `-i HEX' -- specifies explicitly the
+input string to be fed to 'sha1-index' in hexadecimal representation (the string
+need not be valid UTF-8).
+
+The option `-b+' makes 'sha1-prefix.sh' to run a series of at most seventeen
+successive instances of 'sha1-prefix' with the following timeouts, in order,
+for a total time of at most one hour and 59 minutes:
+
+   repeats      timeout         total
+  ----------  ------------  -------------
+   10 times     2 minutes     20 minutes
+    5 times     4 minutes     20 minutes
+    1 time     16 minutes     16 minutes
+    1 time     63 minutes     63 minutes
+  ----------  ------------  -------------
+   17 times                  119 minutes
+
+
+3. Appendix: Links to OpenSSL's SHA1
+====================================
+
+The file 'lib/openssl-sha1-files.txt' lists the associations between OpenSSL's
+SHA1-related original sources files and the corresponding modified versions
+within Sha1-Prefix. The base of these modifications was version 1.1.1c.
+
+  $ cat lib/openssl-sha1-files.txt
+  ...
+  include/openssl/sha.h                 sha1.h
+  crypto/sha/sha1dgst.c                 sha1.c
+  crypto/sha/sha_locl.h                 sha1-impl.h
+  ...
+
+One could inspect these modifications by simply issuing the command below. Note
+that '$OPENSSL_HOME' is the path to the directory hosting OpenSSL's local source
+tree. OpenSSL's source tree can be obtained either as a tarball or cloned from
+its public 'git' repository. URL's to each alternative are given under reference
+entry [2].
+
+  $ shopt -s extglob
+
+  $ . src/commands.sh
+
+  $ openssl-sha1-diff -s $OPENSSL_HOME
+  ...
+
+Note that 'openssl-sha1-diff' expects to be issued from within the top directory
+of the source tree. Its command line options are as follows:
+
+  $ funchelp -f src/commands.sh -c openssl-sha1-diff --long-wrap-join=auto
+    -b|--ignore-space-change  pass '-b|--ignore-space-change' to diff
+    -f|--file-list=FILE       target's file list file name ('-' means stdin, the
+                                default is '$home/lib/$target-files.txt')
+    -h|--home=DIR             home dir (default: '.')
+    -s|--source-dir=DIR       target's source tree directory (default:
+                                '$HOME/openssl')
+    -t:|--target=NAME         target name: 'openssl-sha1'
+        --openssl-sha1
+    -u|--unified=NUM          pass '-u|--unified=NUM' to diff
+
+
+4. References
+=============
+
+Free or Open-Source Software:
+
+[1] OpenSSL: Cryptography and SSL/TLS Toolkit
+    https://www.openssl.org
+
+    https://www.openssl.org/source/openssl-1.1.1c.tar.gz
+    https://git.openssl.org/
+
+[2] Json-Type: JSON Push Parsing and Type Checking
+    http://nongnu.org/json-type/
+
+    http://git.savannah.gnu.org/gitweb/?p=json-type.git
+    git://git.sv.nongnu.org/json-type
+
+[3] Mersenne Twister Home Page: A very fast random number generator of period 2^19937 - 1
+    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
+
+    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/emt19937ar.html
+    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/CODES/mt19937ar.c
+    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/CODES/mt19937ar.tgz
+
+[4] PCG, A Family of Better Random Number Generators
+    http://www.pcg-random.org
+
+    http://www.pcg-random.org/downloads/pcg-c-0.94.zip
+    https://github.com/imneme/pcg-c
+
+[5] SIMD-oriented Fast Mersenne Twister
+    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/
+
+    http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/SFMT-src-1.5.1.tar.gz
+
+

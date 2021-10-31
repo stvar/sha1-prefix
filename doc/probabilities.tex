@@ -1,0 +1,307 @@
+% Copyright (C) 2019  Stefan Vargyas
+% 
+% This file is part of Sha1-Prefix.
+% 
+% Sha1-Prefix is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% (at your option) any later version.
+% 
+% Sha1-Prefix is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with Sha1-Prefix.  If not, see <http://www.gnu.org/licenses/>.
+
+\documentclass[a4paper,9pt,leqno]{article}
+\usepackage[hang]{footmisc}
+\usepackage[fleqn]{amsmath}
+\usepackage{relsize}
+\usepackage{quoting}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{suffix}
+\usepackage{ifpdf}
+\usepackage{cite}
+\usepackage{url}
+
+\ifpdf
+\pdfinfo{
+/Title(Notes on Sha1-Prefix's Probabilities)
+/Author(Stefan Vargyas, stvar@yahoo.com)
+/Creator(LaTeX)
+}
+\fi
+
+\newcommand{\vargyas}{\c{S}tefan Vargyas}
+
+\renewcommand{\ttdefault}{pcr}
+\renewcommand{\familydefault}{\sfdefault}
+
+\addtolength{\textwidth}{1cm}
+\addtolength{\evensidemargin}{-.5cm}
+\addtolength{\oddsidemargin}{-.5cm}
+
+\renewcommand{\=}{\protect\nobreakdash-\hspace{0pt}}
+\renewcommand{\~}{\protect\nobreakdash--\hspace{0pt}}
+
+\setlength{\parindent}{0pt}
+
+\newcommand{\Shaoneprefix}{Sha1\=\!Prefix}
+\newcommand{\ShaonePrefix}{\textbf{\Shaoneprefix}}
+
+\newcommand{\ie}{i.e.}
+\newcommand{\code}[1]{{\tt{#1}}}
+
+\swapnumbers
+\theoremstyle{plain}
+\newtheorem{fact}{Fact}
+\newtheorem{axioms}[fact]{Axioms}
+\newtheorem{prop}[fact]{Proposition}
+\theoremstyle{definition}
+\newtheorem{defn}[fact]{Definition}
+\newtheorem{notn}[fact]{Notation}
+\theoremstyle{remark}
+\newtheorem{rem}[fact]{Remark}
+
+\newcommand{\impll}{\:\:\Longrightarrow\:\:}
+\newcommand{\impl}{\impll}%!!!{\:\:\Rightarrow\:\:}
+
+\newcommand{\by}[1]{{#1}}
+\newcommand{\bydef}{\by{def}}
+
+\newcommand{\eq}{=}
+\newcommand{\eqby}[1]{\symbyrm{#1}{=}}
+\newcommand{\eqbydef}{\eqby{\bydef}}
+
+\newcommand{\symby}[2]{\stackrel{#1}{{#2}}}
+\newcommand{\symbyrm}[2]{\symby{{\rm\scriptstyle{#1}}}{#2}}
+
+\newcommand{\gt}{>}
+\newcommand{\lt}{<}
+
+\newcommand{\lp}{\left(}
+\newcommand{\rp}{\right)}
+
+\newcommand\Nat{\mathbb{N}}
+\WithSuffix
+\newcommand\Nat*{\mathbb{N}^*}
+
+\title{Notes on \ShaonePrefix's Probabilities}
+\author{\larger\vargyas\medskip\\ \tt\textbf{stvar@yahoo.com}}
+\date{Jul 15, 2019}
+
+\newlength\citespace
+\setlength\citespace{.3pt}
+\renewcommand{\citeleft}{\mbox{\textbf{[}\hspace{\citespace}}}
+\renewcommand{\citeright}{\mbox{\hspace{\citespace}\textbf{]}}}
+\renewcommand{\citeform}[1]{\textbf{#1}}
+
+\makeatletter
+\renewcommand\@biblabel[1]{\textbf{[#1]}}%
+\makeatother
+\newenvironment{bbibliography}[1]{%
+    \begin{thebibliography}{\textbf{#1}}%
+    \DeclareUrlCommand\url{\urlstyle{tt}\vspace{\parskip}\\}
+}{%
+    \end{thebibliography}%
+}
+
+\begin{document}
+\maketitle
+
+\section{The \ShaonePrefix\ Program}
+
+\ShaonePrefix\ is a solution program to the following {\it SHA1 prefix problem}:
+
+\begin{quoting}
+Given an input UTF\=8 string and a {\it difficulty} number
+$n \in \Nat$ with $1 \le n \le 9$, do find an UTF\=8 string that
+appended to the input string would produce a SHA1 digest of
+which hexadecimal representation has its leftmost $n$ digits
+all equal to $0$.
+\end{quoting}
+
+\ShaonePrefix\ is structured on two tiers:
+
+\begin{itemize}
+
+\item \code{sha1-prefix} --- obtained from \code{sha1-prefix.c} and
+a few other source files --- is the main program tackling the core of
+the SHA1 prefix problem. It gets the input string (not necessarily
+UTF\=8) from \code{stdin} or from a named file and the difficulty
+number as a command line argument. \code{sha1-prefix} will run until it
+finds the first suffix string that satisfies the specified prefix condition.
+It can be told to terminate cleanly the execution when signaled with
+\code{SIGHUP} if \code{`-e|--sighup-exits'} was passed on the invoking
+command line.
+
+\item \code{sha1-prefix.sh} is a quite involved \code{bash} shell
+script that drives the main program's execution. The shell script's
+main use case is that of running \code{sha1-prefix} in series
+controlled by time outs.
+\end{itemize}
+
+Bellow we will present simple theoretical arguments that founds the
+approach taken. Under reasonably acceptable assumptions, we show that
+running \code{sha-prefix} in series increases \ShaonePrefix's probability
+of success producing required outcome.
+
+\section{Mathematical Evaluations}
+
+The basic theoretical assumption we're considering hereafter
+is that successive runs of \code{sha1-prefix} by \code{sha1-prefix.sh}
+are to be modeled as Bernoulli trials \cite{wiki:bernoullitrial} with
+constant or, by case, non-constant probability of success.
+%
+\begin{fact}\label{binomial:probability}
+If the random variable $X$ follows the binomial distribution
+with parameters $n \in \Nat*$ and $0 \le p \le 1$, then the
+probability of getting \emph{at least one success} in $n$ trials
+is given by $1 - (1 - p)^n$.
+\end{fact}
+
+\begin{proof}
+As per \cite{wiki:binomialdist}, the probability of exactly
+$k$ successes in $n$ trials is given by:
+%
+\begin{equation*}
+\Pr(X \eq k) = {n\choose k} p^k (1-p)^{n-k} 
+\end{equation*}
+%
+Then follows easily that:
+%
+\begin{align*}
+\Pr(X \ge 1) & = 1 - \Pr(X \lt 1) \\
+             & = 1 - \Pr(X \eq 0) \\
+             & = 1 - {n\choose 0} p^0 (1-p)^{n - 0} \\
+             & = 1 - (1 - p)^n
+\end{align*}
+%
+\end{proof}
+
+\begin{fact}
+If $0 \lt p \lt 1$,
+for $B_n \eqbydef 1 - (1 - p)^n$, it holds true that
+$p \lt B_n \lt B_{n+1}$, for all $n \in \Nat*$.
+\end{fact}
+
+\begin{proof}
+%
+We have that:
+%
+\begin{align*}
+0 \lt p \lt 1 & \impl 0 \lt 1 - p \lt 1 \\
+              & \impl (1 - p)^{n-1} \lt 1 \\
+              & \impl (1 - p)^n \lt 1 - p \\
+              & \impl p \lt B_n
+\end{align*}
+%
+Moreover:
+%
+\begin{align*}
+0 \lt p \lt 1 & \impl 0 \lt 1 - p \lt 1 \\
+              & \impl (1 - p)^{n+1} \lt (1 - p)^n \\
+              & \impl B_n \lt B_{n+1}
+\end{align*}
+%
+\end{proof}
+
+\begin{fact}
+If the random variable $X$ follows the Poisson's binomial distribution
+with parameters $n \in \Nat*$ and $0 \le p_i \le 1$, for $1 \le i \le n$,
+then the probability of getting \emph{at least one success} in $n$ trials
+is given by $1 - \prod_{i=1}^n (1 - p_i)$.
+\end{fact}
+
+\begin{proof}
+As per \cite{wiki:poissonbinomialdist}, the probability of exactly
+$0$ successes in $n$ trials is given by:
+%
+\begin{equation*}
+\Pr(X \eq 0) = \prod_{i=1}^n (1 - p_i) 
+\end{equation*}
+%
+Then:
+%
+\begin{align*}
+\Pr(X \ge 1) & = 1 - \Pr(X \lt 1) \\
+             & = 1 - \Pr(X \eq 0) \\
+             & = 1 - \prod_{i=1}^n (1 - p_i)
+\end{align*}
+%
+\end{proof}
+
+\begin{fact}
+If $0 \lt p_i \lt 1$ for all $i \in \Nat$, $1 \le i \le n$,
+for $P_n \eqbydef 1 - \prod_{i=1}^n(1 - p_i)$, it holds true that
+$p_i \lt P_n \lt P_{n+1}$, for all $i \in \Nat$, $1 \le i \le n$,
+and $n \in \Nat*$.
+\end{fact}
+
+\begin{proof}
+%
+For arbitrary but fixed $i \in \Nat$, $1 \le i \le n$, we have that:
+%
+\begin{align*}
+0 \lt p_i \lt 1 & \impl 0 \lt 1 - p_i \lt 1 \\
+                & \impl \prod_{k=1}^n (1 - p_k) \lt 1 - p_i \\
+                & \impl p_i \lt P_n
+\end{align*}
+%
+Moreover:
+%
+\begin{align*}
+0 \lt p_i \lt 1 & \impl 0 \lt 1 - p_i \lt 1 \\
+                & \impl \prod_{k=1}^{n+1} (1 - p_k)
+                       \eq \lp \prod_{k=1}^n (1 - p_k) \rp \cdot (1 - p_{n+1}) 
+                       \lt \prod_{k=1}^n (1 - p_k) \\
+                & \impl P_n \lt P_{n+1}
+\end{align*}
+%
+\end{proof}
+
+\begin{bbibliography}{0}
+%
+\bibitem{wiki:bernoullitrial}
+    Bernoulli Trial
+    \url{https://en.wikipedia.org/wiki/Bernoulli_trial}
+%
+\bibitem{wiki:binomialdist}
+    Binomial Distribution
+    \url{https://en.wikipedia.org/wiki/Binomial_distribution}
+%
+\bibitem{wiki:poissonbinomialdist}
+    Poisson Binomial Distribution
+    \url{https://en.wikipedia.org/wiki/Poisson_binomial_distribution}
+%
+\end{bbibliography}
+%
+\let\thefootnote\relax%
+\footnotetext{%
+\renewcommand{\Shaoneprefix}{Sha1-Prefix}%
+\vspace{5pt}
+
+Copyright \copyright\ 2019\hspace{1em}\textbf{\vargyas}
+
+This file is part of \ShaonePrefix.
+
+\ShaonePrefix\ is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+\ShaonePrefix\ is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with \ShaonePrefix.  If not, see \url{http://www.gnu.org/licenses/}.}
+%
+\end{document}
+
+

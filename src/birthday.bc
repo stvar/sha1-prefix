@@ -1,0 +1,81 @@
+# Copyright (C) 2019  Stefan Vargyas
+# 
+# This file is part of Sha1-Prefix.
+# 
+# Sha1-Prefix is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Sha1-Prefix is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Sha1-Prefix.  If not, see <http://www.gnu.org/licenses/>.
+
+# https://en.wikipedia.org/wiki/Birthday_problem#Cast_as_a_collision_problem
+# --------------------------------------------------------------------------
+# The Birthday Problem: Cast as a collision problem
+
+# http://www.pcg-random.org/posts/birthday-test.html
+# --------------------------------------------------
+# A Birthday Test: Quickly Failing Some Popular PRNGs
+# M.E. O'Neill -- 2018-06-09 15:35
+
+define n(d, p)
+{ return sqrt(-2*d*l(1-p)) }
+
+define p(d, n)
+{ return 1-e(-(n^2)/(2*d)) }
+
+define d(n, p)
+{ return -(n^2)/(2*l(1-p)) }
+
+# define r(d, n)
+# { return n-d*(1-(1-1/d)^n) }
+
+define r(d, n)
+{ return n^2/(2*d) }
+
+define l2(x)  { return l(x)/l(2) }
+define l10(x) { return l(x)/l(10) }
+
+define round(x)
+{
+    auto s
+
+    s = scale
+    scale = 0
+    if (x > 0) {
+        x += 0.5
+    } else {
+        x -= 0.5
+    }
+    x /= 1
+    scale = s
+
+    return x
+}
+
+define roundn(x, n)
+{
+    auto s, p
+
+    s = scale
+    p = 10^n
+    x *= p
+    scale = n
+    if (x > 0) {
+        x += 0.5
+    } else {
+        x -= 0.5
+    }
+    x /= p
+    scale = s
+
+    return x
+}
+
+
